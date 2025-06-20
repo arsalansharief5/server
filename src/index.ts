@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { userRoutes } from './routes';
+import { userRoutes, friendRoutes } from './routes';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,7 +8,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Routes
 app.use('/api/users', userRoutes);
+app.use('/api/friends', friendRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {

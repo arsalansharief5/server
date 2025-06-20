@@ -24,5 +24,43 @@ model User {
   lastOnlineAt   DateTime @default(now())
   privacyLevel   String   @default("friends-only")
   
+  // Friend relationships
+  sentFriendRequests     FriendRequest[] @relation("Sender")
+  receivedFriendRequests FriendRequest[] @relation("Receiver")
+  
+  // Friends relation (self-relation)
+  friends    Friendship[] @relation("UserFriends")
+  friendsOf  Friendship[] @relation("FriendOf")
+  
   @@map("users")
+}
+
+model FriendRequest {
+  id         String   @id @default(uuid())
+  status     String   @default("pending") // pending, accepted, ignored
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  sender     User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId   String
+  receiver   User     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverId String
+  
+  @@unique([senderId, receiverId])
+  @@map("friend_requests")
+}
+
+model Friendship {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  
+  // Self-relation to User
+  user       User     @relation("UserFriends", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  friend     User     @relation("FriendOf", fields: [friendId], references: [id], onDelete: Cascade)
+  friendId   String
+  
+  @@unique([userId, friendId])
+  @@map("friendships")
 }

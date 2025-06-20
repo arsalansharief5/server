@@ -107,3 +107,49 @@ export const login = async (req: Request, res: Response) => {
     });
   }
 };
+
+// GET /api/users/search?username=...
+export const searchUsers = async (req: Request, res: Response) => {
+  try {
+    const { username } = req.query;
+    const currentUserId = req.user.id;
+
+    if (!username || typeof username !== 'string' || username.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username query parameter is required and must be at least 2 characters.',
+      });
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        AND: [
+          {
+            OR: [
+              { username: { contains: username } },
+              { displayName: { contains: username } },
+            ],
+          },
+          { id: { not: currentUserId } },
+        ],
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+      },
+      take: 10,
+    });
+
+    return res.json({
+      success: true,
+      data: users,
+    });
+  } catch (error) {
+    console.error('User search error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
