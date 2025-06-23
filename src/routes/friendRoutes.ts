@@ -9,6 +9,7 @@ import {
   removeFriend,
   getFriendshipStatus,
   getPendingSentFriendRequests,
+  getAllFriendsWithStatus,
 } from '../controllers/friendController';
 import { authenticate } from '../middleware/auth';
 
@@ -23,6 +24,7 @@ router.delete('/request/:requestId', cancelFriendRequest);
 router.delete('/:friendId', removeFriend);
 
 router.get('/', getAllFriends);
+router.get('/firends-with-status', getAllFriendsWithStatus)
 router.get('/requests/pending', getPendingFriendRequests);
 router.get('/requests/sent', getPendingSentFriendRequests);
 router.get('/status', getFriendshipStatus);

@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import { userRoutes, friendRoutes } from './routes';
+import http from 'http';
+import { initializeWebSocketServer } from './websocket/server';
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,10 +17,14 @@ app.use('/api/friends', friendRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {
-  console.log('Health check endpoint hit');
   res.status(200).json({ status: 'ok' });
 });
 
-app.listen(PORT, () => {
-  console.log(`server running on port ${PORT}`);
+
+const server = http.createServer(app);
+
+initializeWebSocketServer(server);
+
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });

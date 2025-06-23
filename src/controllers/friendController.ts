@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../utils/prisma';
+import { isUserOnline } from '../utils/redis';
 
 // Send a friend request
 export const sendFriendRequest = async (req: Request, res: Response) => {
@@ -529,3 +530,52 @@ export const getFriendshipStatus = async (req: Request, res: Response) => {
   }
 };
 
+// get all friends with online/offline status
+export const getAllFriendsWithStatus = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user.id;
+
+    const rels = await prisma.friendship.findMany({
+      where: { userId },
+      include: {
+        friend: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            lastOnlineAt: true,
+          },
+        },
+      },
+    });
+
+    const friendsWithStatus = await Promise.all(
+      rels.map(async ({ friend }) => {
+        const online = await isUserOnline(friend.id);
+        return {
+          id: friend.id,
+          username: friend.username,
+          displayName: friend.displayName,
+          isOnline: online,
+          lastSeen: friend.lastOnlineAt,
+        };
+      })
+    );
+
+    const online = friendsWithStatus
+      .filter(f => f.isOnline)
+      .sort((a, b) => a.username.localeCompare(b.username));
+
+    const offline = friendsWithStatus
+      .filter(f => !f.isOnline)
+      .sort((a, b) => (b.lastSeen?.getTime() || 0) - (a.lastSeen?.getTime() || 0));
+
+    return res.json({
+      success: true,
+      data: [...online, ...offline],
+    });
+  } catch (error) {
+    console.error('Get all friends error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
