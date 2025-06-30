@@ -1,16 +1,16 @@
-# PeerPulse Server
+# BrowsePing Server
 
 ## Overview
 
-This repository contains the backend server implementation for **PeerPulse**, a real-time social presence platform that transforms web browsing into a shared social experience.
+This repository contains the backend server implementation for **BrowsePing**, a real-time social presence platform that transforms web browsing into a shared social experience.
 
 
 ### Installation
 
 1. Clone the repository:
    ```bash
-   git clone --
-   cd --
+   git clone https://github.com/browseping/server.git
+   cd server
    ```
 
 2. Install dependencies:
