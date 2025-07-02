@@ -161,7 +161,7 @@ export const acceptFriendRequest = async (req: Request, res: Response) => {
       });
     }
 
-    if (friendRequest.status !== 'pending') {
+    if (friendRequest.status !== 'pending' && friendRequest.status !== 'ignored') {
       return res.status(400).json({
         success: false,
         message: 'Friend request is not pending',
@@ -368,6 +368,48 @@ export const getPendingSentFriendRequests = async (req: Request, res: Response) 
   }
 };
 
+// Get all ignored friend requests received by the authenticated user
+export const getIgnoredFriendRequests = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user.id;
+
+    // Find all requests where the user is the receiver and status is 'ignored'
+    const requests = await prisma.friendRequest.findMany({
+      where: {
+        receiverId: userId,
+        status: 'ignored',
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const ignoredRequests = requests.map(r => ({
+      requestId: r.id,
+      sender: r.sender,
+      createdAt: r.createdAt,
+    }));
+
+    return res.json({
+      success: true,
+      data: ignoredRequests,
+    });
+  } catch (error) {
+    console.error('Get ignored friend requests error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
+
 // Cancel a friend request (sender can cancel their own pending request)
 export const cancelFriendRequest = async (req: Request, res: Response) => {
   try {
@@ -392,10 +434,10 @@ export const cancelFriendRequest = async (req: Request, res: Response) => {
       });
     }
 
-    if (friendRequest.status !== 'pending') {
+    if (friendRequest.status !== 'pending' && friendRequest.status !== 'ignored') {
       return res.status(400).json({
         success: false,
-        message: 'Only pending requests can be cancelled',
+        message: 'Only pending or ignored requests can be cancelled',
       });
     }
 
@@ -493,9 +535,17 @@ export const getFriendshipStatus = async (req: Request, res: Response) => {
     });
 
     if (sentRequest) {
+      if (sentRequest.status === 'ignored') {
+        return res.json({
+          success: true,
+          status: 'pending_sent',
+          requestId: sentRequest.id,
+        });
+      }
       return res.json({
         success: true,
         status: sentRequest.status === 'pending' ? 'pending_sent' : sentRequest.status,
+        requestId: sentRequest.id,
       });
     }
 
@@ -513,6 +563,7 @@ export const getFriendshipStatus = async (req: Request, res: Response) => {
       return res.json({
         success: true,
         status: receivedRequest.status === 'pending' ? 'pending_received' : receivedRequest.status,
+        requestId: receivedRequest.id,
       });
     }
 
