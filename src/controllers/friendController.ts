@@ -602,10 +602,31 @@ export const getAllFriendsWithStatus = async (req: Request, res: Response) => {
 
     const friendsWithStatus = await Promise.all(
       rels.map(async ({ friend }) => {
+        const friendUser = await prisma.user.findUnique({
+          where: { id: friend.id },
+          select: { tabPrivacy: true }
+        });
+
+        let canSeeTabs = false;
+        if (friendUser?.tabPrivacy === 'friends_only') {
+          canSeeTabs = true;
+        } else if (friendUser?.tabPrivacy === 'close_friends_only') {
+          const closeFriendRel = await prisma.friendship.findUnique({
+            where: {
+              userId_friendId: {
+                userId: friend.id,
+                friendId: userId
+              }
+            },
+            select: { closeFriend: true }
+          });
+          canSeeTabs = !!closeFriendRel?.closeFriend;
+        }
+
         const online = await isUserOnline(friend.id);
         let activeTab = null;
         let allTabs = null;
-        if (online) {
+        if (online && canSeeTabs) {
           activeTab = await getActiveTabData(friend.id);
           allTabs = await getLatestTabData(friend.id);
         }

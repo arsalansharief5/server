@@ -50,15 +50,40 @@ export const getActiveTabData = async (userId: string) => {
 }
 
 export const subscribeToFriendsTabUpdates = async (userId: string) => {
-  const friends = await prisma.friendship.findMany({
+  const friendships = await prisma.friendship.findMany({
     where: { userId },
-    select: { friendId: true }
+    include: {
+      friend: {
+        select: { id: true, tabPrivacy: true }
+      }
+    }
   });
-  const friendIds = friends.map(f => f.friendId);
 
-  for (const friendId of friendIds) {
-    await redisSubscriber.subscribe(`all-tabs-update:${friendId}`);
-    await redisSubscriber.subscribe(`active-tab-update:${friendId}`);
+  for (const { friendId, friend } of friendships) {
+    if (!friend) continue;
+    const privacy = friend.tabPrivacy;
+
+    if (privacy === 'friends_only') {
+      await redisSubscriber.subscribe(`all-tabs-update:${friendId}`);
+      await redisSubscriber.subscribe(`active-tab-update:${friendId}`);
+      continue;
+    } else if (privacy === 'close_friends_only') {
+      const closeFriendRel = await prisma.friendship.findUnique({
+        where: {
+          userId_friendId: {
+            userId: friendId,
+            friendId: userId
+          }
+        },
+        select: { closeFriend: true }
+      });
+      if (closeFriendRel?.closeFriend) {
+        await redisSubscriber.subscribe(`all-tabs-update:${friendId}`);
+        await redisSubscriber.subscribe(`active-tab-update:${friendId}`);
+        console.log(`Subscribed to all-tabs-update:${friendId} and active-tab-update:${friendId} for close_friends_only`);
+        continue;
+      }
+    }
   }
 
   redisSubscriber.on('message', (channel, message) => {
@@ -88,8 +113,7 @@ export const subscribeToFriendsTabUpdates = async (userId: string) => {
         }));
       }
     }
-  })
-
+  });
 }
 
 // Tab Session and Aggregates Functions

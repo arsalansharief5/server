@@ -24,6 +24,12 @@ enum EmailPrivacyLevel {
   friends_only
 }
 
+enum TabPrivacyLevel {
+  friends_only
+  close_friends_only
+  private
+}
+
 model User {
   id             String   @id @default(uuid())
   username       String   @unique
@@ -38,6 +44,8 @@ model User {
 
   dateOfBirth    DateTime?
   dobPrivacy     PrivacyLevel? @default(private)
+
+  tabPrivacy  TabPrivacyLevel @default(friends_only)
 
   // Friend relationships
   sentFriendRequests     FriendRequest[] @relation("Sender")
@@ -80,6 +88,8 @@ model Friendship {
   userId     String
   friend     User     @relation("FriendOf", fields: [friendId], references: [id], onDelete: Cascade)
   friendId   String
+
+  closeFriend Boolean @default(false)
   
   @@unique([userId, friendId])
   @@map("friendships")
