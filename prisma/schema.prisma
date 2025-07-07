@@ -19,11 +19,6 @@ enum PrivacyLevel {
   private
 }
 
-enum EmailPrivacyLevel {
-  public
-  friends_only
-}
-
 enum TabPrivacyLevel {
   friends_only
   close_friends_only
@@ -35,12 +30,15 @@ model User {
   username       String   @unique
   password       String
   email          String?  @unique
-  emailPrivacy   EmailPrivacyLevel @default(friends_only)
+  emailPrivacy   PrivacyLevel @default(friends_only)
   displayName    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   lastOnlineAt   DateTime @default(now())
   privacyLevel   String   @default("friends-only")
+
+  onlinePrivacy  PrivacyLevel @default(public)
+  lastOnlinePrivacy PrivacyLevel  @default(friends_only)
 
   dateOfBirth    DateTime?
   dobPrivacy     PrivacyLevel? @default(private)

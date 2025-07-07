@@ -604,7 +604,7 @@ export const getAllFriendsWithStatus = async (req: Request, res: Response) => {
       rels.map(async ({ friend }) => {
         const friendUser = await prisma.user.findUnique({
           where: { id: friend.id },
-          select: { tabPrivacy: true }
+          select: { tabPrivacy: true, onlinePrivacy: true, lastOnlinePrivacy: true }
         });
 
         let canSeeTabs = false;
@@ -623,7 +623,32 @@ export const getAllFriendsWithStatus = async (req: Request, res: Response) => {
           canSeeTabs = !!closeFriendRel?.closeFriend;
         }
 
-        const online = await isUserOnline(friend.id);
+        let canSeeOnline = false;
+        let canSeeLastSeen = false;
+
+        const isFriend = true;
+
+        if (friendUser?.onlinePrivacy === 'public') {
+          canSeeOnline = true;
+        } else if (friendUser?.onlinePrivacy === 'friends_only' && isFriend) {
+          canSeeOnline = true;
+        }
+
+        if (friendUser?.lastOnlinePrivacy === 'public') {
+          canSeeLastSeen = true;
+        } else if (friendUser?.lastOnlinePrivacy === 'friends_only' && isFriend) {
+          canSeeLastSeen = true;
+        }
+
+        let online = null;
+        let lastSeen = null;
+        if (canSeeOnline) {
+          online = await isUserOnline(friend.id);
+        }
+        if (canSeeLastSeen) {
+          lastSeen = friend.lastOnlineAt;
+        }
+
         let activeTab = null;
         let allTabs = null;
         if (online && canSeeTabs) {
@@ -635,7 +660,7 @@ export const getAllFriendsWithStatus = async (req: Request, res: Response) => {
           username: friend.username,
           displayName: friend.displayName,
           isOnline: online,
-          lastSeen: friend.lastOnlineAt,
+          lastSeen,
           activeTab,
           allTabs,
         };
