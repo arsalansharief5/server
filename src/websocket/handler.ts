@@ -100,7 +100,7 @@ export function handleConnection(ws: WebSocket, req: any) {
                 const prevSession = await getCurrentTabSession(user.id);
                 if (prevSession && prevSession.domain && prevSession.startTime) {
                     const duration = Math.floor((now - Number(prevSession.startTime)) / 1000);
-                    if (duration > 0 && prevSession.domain !== domain) {
+                    if (duration > 0) {
                         await incrementTabAggregate(user.id, prevSession.domain, duration);
                     }
                 }
