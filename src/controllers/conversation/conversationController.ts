@@ -52,10 +52,10 @@ export const getMessages = async (req: Request, res: Response) => {
     try {
         const { conversationId } = req.params;
         const userId = req.user.id;
-        const { limit = 10, cursor } = req.query;
+        const { limit = 10, cursor, markAsSeen = 'true' } = req.query;
 
-        // check if user is participiant
-        const participiant = await prisma.conversationParticipant.findUnique({
+        // check if user is participant
+        const participant = await prisma.conversationParticipant.findUnique({
             where: {
                 conversationId_userId: {
                     conversationId,
@@ -67,7 +67,7 @@ export const getMessages = async (req: Request, res: Response) => {
             }
         });
 
-        if (!participiant) {
+        if (!participant) {
             return res.status(404).json({
                 success: false,
                 message: 'Conversation not found'
@@ -84,25 +84,92 @@ export const getMessages = async (req: Request, res: Response) => {
                 lt: new Date(cursor as string)
             };
         }
-
-        const messages = await prisma.message.findMany({
+        
+        const conversationType = participant.conversation.type;
+        let messages: any[];
+        messages = await prisma.message.findMany({
             where: whereClause,
             include: {
                 sender: {
                     select: { id: true, username: true, displayName: true }
                 }
             },
-            orderBy: {
-                createdAt: 'desc'
-            },
+            orderBy: { createdAt: 'desc' },
             take: parseInt(limit as string)
         });
 
-        return res.status(200).json({
-            success: true,
-            data: messages.reverse(),
-            canReply: participiant.status === 'ACCEPTED'
-        });
+      let totalUnreadMarked = 0;
+      if (markAsSeen === 'true' && participant.status === 'ACCEPTED') {
+        let unreadMessages: any[] = [];
+
+        unreadMessages = messages.filter(msg => 
+          msg.senderId !== userId && !msg.seenAt
+        );
+        
+        if (unreadMessages.length > 0) {
+          await prisma.message.updateMany({
+            where: {
+              id: { in: unreadMessages.map(msg => msg.id) }
+            },
+            data: { seenAt: new Date() }
+          });
+          
+          const seenAt = new Date().toISOString();
+          messages = messages.map(msg => 
+            unreadMessages.some(unread => unread.id === msg.id) 
+              ? { ...msg, seenAt } 
+              : msg
+          );
+          
+          totalUnreadMarked = unreadMessages.length;
+        }
+
+        // Reset unread count if there were unread messages
+        if (unreadMessages.length > 0) {
+          await prisma.conversationParticipant.updateMany({
+            where: {
+              conversationId,
+              userId,
+              unreadCount: { gt: 0 }
+            },
+            data: { unreadCount: 0 }
+          });
+          
+          const { wsClients } = await import('../../websocket/handler');
+          const userWs = wsClients[userId];
+          
+          // Notify other participants about seen status
+          const otherParticipants = await prisma.conversationParticipant.findMany({
+            where: {
+              conversationId,
+              userId: { not: userId },
+              status: 'ACCEPTED'
+            }
+          });
+          
+          otherParticipants.forEach(p => {
+            const ws = wsClients[p.userId];
+            if (ws && ws.readyState === 1) {
+              ws.send(JSON.stringify({
+                type: 'MESSAGES_SEEN',
+                data: {
+                  conversationId,
+                  seenBy: conversationType === userId,
+                  seenAt: new Date().toISOString(),
+                  messageCount: unreadMessages.length,
+                  messageIds: unreadMessages.map(msg => msg.id)
+                }
+              }));
+            }
+          });
+        }
+      }
+
+      return res.status(200).json({
+          success: true,
+          data: messages.reverse(),
+          canReply: participant.status === 'ACCEPTED'
+      });
     } catch (error) {
         console.log('[ConversationController]: getMessages error: ', (error));
         return res.status(500).json({

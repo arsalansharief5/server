@@ -184,3 +184,156 @@ export const sendMessage = async (req: Request, res: Response) => {
         })
     }
 }
+
+export const markConversationAsSeen = async (req: Request, res: Response) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId,
+          userId
+        }
+      },
+      include: {
+        conversation: {
+          select: { type: true }
+        }
+      }
+    });
+
+    if (!participant || participant.status !== 'ACCEPTED') {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to mark this conversation as seen'
+      });
+    }
+
+    const conversationType = participant.conversation.type;
+    let unreadMessages: any[] = [];
+    let markedCount = 0;
+
+    if (conversationType === 'DIRECT') {
+      unreadMessages = await prisma.message.findMany({
+        where: {
+          conversationId,
+          senderId: { not: userId },
+          seenAt: null
+        },
+        select: { id: true, senderId: true }
+      });
+
+      if (unreadMessages.length > 0) {
+        await prisma.message.updateMany({
+          where: {
+            id: { in: unreadMessages.map(msg => msg.id) }
+          },
+          data: { seenAt: new Date() }
+        });
+        markedCount = unreadMessages.length;
+      }
+
+    } else {
+      // Get unread messages for group conversation
+      unreadMessages = await prisma.message.findMany({
+        where: {
+          conversationId,
+          senderId: { not: userId },
+          readReceipts: {
+            none: { userId }
+          }
+        },
+        select: { id: true, senderId: true }
+      });
+
+      if (unreadMessages.length > 0) {
+        // Create read receipts for all unread messages
+        const readReceiptsData = unreadMessages.map(msg => ({
+          messageId: msg.id,
+          userId,
+          readAt: new Date()
+        }));
+
+        await prisma.messageReadReceipt.createMany({
+          data: readReceiptsData,
+          skipDuplicates: true
+        });
+        markedCount = unreadMessages.length;
+      }
+    }
+
+    await prisma.conversationParticipant.updateMany({
+      where: {
+        conversationId,
+        userId,
+        unreadCount: { gt: 0 }
+      },
+      data: { unreadCount: 0 }
+    });
+
+    if (markedCount > 0) {
+      const seenAt = new Date().toISOString();
+
+      let currentUser = null;
+      if (conversationType === 'GROUP') {
+        currentUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true
+          }
+        });
+      }
+
+      const otherParticipants = await prisma.conversationParticipant.findMany({
+        where: {
+          conversationId,
+          userId: { not: userId },
+          status: 'ACCEPTED'
+        }
+      });
+
+      otherParticipants.forEach(p => {
+        const ws = wsClients[p.userId];
+        if (ws && ws.readyState === 1) {
+          ws.send(JSON.stringify({
+            type: conversationType === 'DIRECT' ? 'DIRECT_CONVERSATION_SEEN' : 'GROUP_CONVERSATION_SEEN',
+            data: {
+              conversationId,
+              seenBy: conversationType === 'DIRECT' ? userId : currentUser,
+              seenAt,
+              messageCount: markedCount,
+              messageIds: unreadMessages.map(msg => msg.id)
+            }
+          }));
+        }
+      });
+    }
+
+    const userWs = wsClients[userId];
+    if (userWs && userWs.readyState === 1) {
+      userWs.send(JSON.stringify({
+        type: 'UNREAD_COUNT_RESET',
+        data: { conversationId }
+      }));
+    }
+
+    return res.json({
+      success: true,
+      message: `${conversationType.toLowerCase()} conversation marked as seen`,
+      markedCount,
+      conversationType
+    });
+
+  } catch (error) {
+    console.error('Mark conversation as seen error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
