@@ -36,6 +36,20 @@ enum ParticipantStatus {
   BLOCKED
 }
 
+enum NotificationType {
+  FRIEND_REQUEST_RECEIVED
+  FRIEND_REQUEST_ACCEPTED
+  CONVERSATION_INVITE
+  CONVERSATION_ACCEPTED
+  SYSTEM_NOTIFICATION
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model User {
   id             String   @id @default(uuid())
   username       String   @unique
@@ -88,6 +102,10 @@ model User {
   conversations          ConversationParticipant[]
   sentMessages           Message[]
   messageReadReceipts    MessageReadReceipt[]
+
+  // Notifications
+  notifications          Notification[] @relation("UserNotifications")
+  triggeredNotifications Notification[] @relation("NotificationFrom")
 
   @@map("users")
 }
@@ -253,4 +271,42 @@ model MessageReadReceipt {
   @@unique([messageId, userId])
   @@index([messageId])
   @@index([userId])
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  
+  // Basic notification info
+  type        NotificationType
+  title       String
+  body        String   @db.Text
+  priority    NotificationPriority @default(MEDIUM)
+  
+  // Status
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  
+  // Recipient
+  userId      String
+  user        User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Related entities (nullable for flexibility)
+  fromUserId  String?  // Who triggered this notification
+  fromUser    User?    @relation("NotificationFrom", fields: [fromUserId], references: [id], onDelete: SetNull)
+  
+  relatedId   String?  // ID of related entity (friend request, message, conversation, etc.)
+  relatedType String?  // Type of related entity ("friend_request", "message", "conversation")
+  
+  actionUrl   String?
+  
+  metadata    Json?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId, isRead, createdAt])
+  @@index([userId, type, createdAt])
+  @@index([createdAt])
+  @@map("notifications")
 }

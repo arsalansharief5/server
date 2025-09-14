@@ -1,6 +1,7 @@
 import { Request, Response } from "express"
 import prisma from "../../utils/prisma";
 import { wsClients } from "../../websocket/handler";
+import { notifyConversationRequestReceived } from "../../services/notificationService";
 
 export const sendMessage = async (req: Request, res: Response) => {
     try {
@@ -157,7 +158,7 @@ export const sendMessage = async (req: Request, res: Response) => {
             }
         });
 
-        conversation.participants.forEach(participant => {
+        conversation.participants.forEach(async participant => {
             if (participant.userId != senderId) {
                 const ws = wsClients[participant.userId];
                 if (ws && ws.readyState === 1) {
@@ -165,6 +166,22 @@ export const sendMessage = async (req: Request, res: Response) => {
                         type: 'NEW_MESSAGE',
                         data: { ...message, conversationId: conversation.id }
                     }));
+                }
+
+                if (participant.status === 'PENDING' && !isNewConversation) {
+                    await notifyConversationRequestReceived(
+                        participant.userId,
+                        senderId,
+                        conversation.id,
+                        content.trim()
+                    );
+                } else if (isNewConversation && participant.status === 'PENDING') {
+                    await notifyConversationRequestReceived(
+                        participant.userId,
+                        senderId,
+                        conversation.id,
+                        content.trim()
+                    );
                 }
             }
         })

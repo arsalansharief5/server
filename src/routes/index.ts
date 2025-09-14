@@ -4,11 +4,14 @@ import profileRoutes from './profileRoutes'
 import analyticsRoutes from './analyticsRoutes';
 import leaderboardRoutes from './leaderboardRoutes';
 import conversationRoutes from './conversationRoutes';
+import notificationRoutes from './notificationRoutes';
 
-export { userRoutes,
+export { 
+    userRoutes,
     friendRoutes,
     profileRoutes,
     analyticsRoutes,
     leaderboardRoutes,
-    conversationRoutes
+    conversationRoutes,
+    notificationRoutes
 };

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../../utils/prisma";
+import { notifyConversationRequestAccepted } from "../../services/notificationService";
 
 export const getUserConversations = async (req: Request, res: Response) => {
     try {
@@ -219,6 +220,33 @@ export const acceptConversationInvite = async (req: Request, res: Response) => {
         status: 'ACCEPTED'
       }
     });
+
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        participants: {
+          where: { status: 'ACCEPTED', userId: { not: userId } },
+          include: {
+            user: {
+              select: { id: true, username: true, displayName: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (conversation && conversation.participants.length > 0) {
+      if (conversation.type === 'DIRECT') {
+        const otherParticipant = conversation.participants[0];
+        if (otherParticipant) {
+          await notifyConversationRequestAccepted(
+            otherParticipant.userId,
+            userId,
+            conversationId
+          );
+        }
+      }
+    }
 
     return res.json({
       success: true,

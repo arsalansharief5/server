@@ -5,7 +5,8 @@ import { userRoutes,
   profileRoutes,
   analyticsRoutes,
   leaderboardRoutes,
-  conversationRoutes } from './routes';
+  conversationRoutes,
+  notificationRoutes } from './routes';
 import http from 'http';
 import { initializeWebSocketServer } from './websocket/server';
 import { startAnalyticsFlushWorker } from './workers/analyticsFlushWorker';
@@ -24,6 +25,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/conversation', conversationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {
