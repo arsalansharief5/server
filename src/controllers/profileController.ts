@@ -144,3 +144,134 @@ export const updatePrivacySettings = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const {
+      displayName,
+      bio,
+      dateOfBirth,
+      twitter,
+      linkedin,
+      instagram,
+      github,
+      website,
+      telegram,
+      snapchat,
+      discord,
+      avatarUrl
+    } = req.body;
+
+    // Basic validation
+    if (displayName && displayName.trim().length > 100) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Display name too long',
+        error: 'Display name must be 100 characters or less'
+      });
+    }
+
+    if (bio && bio.length > 500) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Bio too long',
+        error: 'Bio must be 500 characters or less'
+      });
+    }
+
+    // URL validation helper
+    const isValidUrl = (url: string) => {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    // Validate social media URLs if provided
+    const socialMediaFields = { twitter, linkedin, instagram, github, website, telegram, snapchat, discord };
+    for (const [platform, url] of Object.entries(socialMediaFields)) {
+      if (url && !isValidUrl(url)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid ${platform} URL`,
+          error: `Please provide a valid URL for ${platform}`
+        });
+      }
+    }
+
+    // Date validation
+    if (dateOfBirth) {
+      const birthDate = new Date(dateOfBirth);
+      const now = new Date();
+      const age = now.getFullYear() - birthDate.getFullYear();
+      
+      if (birthDate > now) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid date of birth',
+          error: 'Date of birth cannot be in the future'
+        });
+      }
+
+      if (age > 150) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid date of birth',
+          error: 'Please provide a valid date of birth'
+        });
+      }
+    }
+
+    // Update the user
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(displayName !== undefined && { displayName: displayName?.trim() || null }),
+        ...(bio !== undefined && { bio: bio?.trim() || null }),
+        ...(dateOfBirth !== undefined && { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null }),
+        ...(twitter !== undefined && { twitter: twitter?.trim() || null }),
+        ...(linkedin !== undefined && { linkedin: linkedin?.trim() || null }),
+        ...(instagram !== undefined && { instagram: instagram?.trim() || null }),
+        ...(github !== undefined && { github: github?.trim() || null }),
+        ...(website !== undefined && { website: website?.trim() || null }),
+        ...(telegram !== undefined && { telegram: telegram?.trim() || null }),
+        ...(snapchat !== undefined && { snapchat: snapchat?.trim() || null }),
+        ...(discord !== undefined && { discord: discord?.trim() || null }),
+        ...(avatarUrl !== undefined && { avatarUrl: avatarUrl?.trim() || null }),
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        bio: true,
+        dateOfBirth: true,
+        avatarUrl: true,
+        twitter: true,
+        linkedin: true,
+        instagram: true,
+        github: true,
+        website: true,
+        telegram: true,
+        snapchat: true,
+        discord: true,
+        updatedAt: true,
+      }
+    });
+
+    return res.json({ 
+      success: true, 
+      data: updated,
+      message: 'Profile updated successfully'
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error',
+      error: 'Failed to update profile'
+    });
+  }
+};
