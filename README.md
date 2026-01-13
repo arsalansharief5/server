@@ -109,11 +109,6 @@ The server will start on `http://localhost:3000` (or the port specified in your 
 
 This project supports local development using **Docker and Docker Compose.**
 
-Prerequisites
-
-- Docker
-- Docker Compose
-
 ### Setup
 
 Copy the environment file:
@@ -121,13 +116,7 @@ Copy the environment file:
 cp .env.example .env
 ```
 
-For Docker development, update the following values in .env:
-```
-DATABASE_URL=mysql://root:<password>@mysql:3306/browseping
-REDIS_URL=redis://redis:6379
-```
-
-> Docker Compose provides internal networking, so service names (`mysql`, `redis`) are used instead of `localhost`.
+> Edit .env and set your credentials (except `DATABASE_URL` and `REDIS_URL` — those are hardcoded in docker-compose.yml).
 
 Start the application:
 ```
@@ -145,14 +134,14 @@ We welcome contributions to the BrowsePing server! Whether it's fixing bugs, imp
 
 Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on how to get started.
 
-Join our community on [Discord](https://discord.gg/GdhXuEAZ) to discuss ideas and collaborate with other contributors.
+Join our community on [Discord](https://discord.gg/Gtv9PFgaHZ) to discuss ideas and collaborate with other contributors.
 
 ## Community & Links
 
 ### Connect With Us
 
 - **Website**: [browseping.com](https://browseping.com)
-- **Discord**: [Join our community](https://discord.gg/GdhXuEAZ)
+- **Discord**: [Join our community](https://discord.gg/Gtv9PFgaHZ)
 - **Twitter/X**: [@BrowsePing](https://x.com/browseping)
 - **LinkedIn**: [BrowsePing Company](https://www.linkedin.com/company/browseping)
 - **GitHub**: [github.com/browseping](https://github.com/browseping)
