@@ -9,43 +9,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: browseping
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd="redis-cli ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
-    env:
-      DATABASE_URL: mysql://root:root@127.0.0.1:3306/browseping
-      REDIS_URL: redis://127.0.0.1:6379
-      JWT_SECRET: CI_TEST_SECRET_1234567890
-      PORT: 3000
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
-        with:
+        with: 
           node-version: 20
           cache: "npm"
 
